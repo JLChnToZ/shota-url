@@ -1,0 +1,21 @@
+{
+  "host": "0.0.0.0",
+  "port": 33230,
+  "db": "mongodb://localhost:27017/shotaurl",
+  "siteName": "正太(?) 的不太短網址生成器",
+  "siteroot": "https://s.meru.ml/",
+  "linkHashSalt": "sh0ta",
+  "removeHashSalt": "rem0vesh0ta",
+  "maxduration": 5184000000,
+  "minifyOptions": {
+    "collapseWhitespace": true,
+    "decodeEntities": true,
+    "minifyCSS": true,
+    "minifyJS": true,
+    "preventAttributesEscaping": true,
+    "removeComments": true,
+    "removeOptionalTags": true,
+    "removeRedundantAttributes": true,
+    "useShortDoctype": true
+  }
+}

@@ -1,0 +1,548 @@
+<!DOCTYPE HTML>
+<HTML lang="zh-tw" data-ts-native>
+<Head>
+<meta charset="utf8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+<Title>{{config.siteName}}</title>
+</Head>
+<Body>
+<div class="ts narrow container">
+  <br />
+  <h1 class="ts dividing header">
+    <span>生成短網址</span>
+  </h1>
+  <form action="###" id="mainform" class="ts form">
+    <noscript>
+      <div class="ts inverted active dimmer">
+        <span>此頁面需要啟用 JavaScript</span>
+      </div>
+    </noscript>
+    <div class="ts disabled inverted dimmer" id="addformoverlay">
+      <div class="ts text loader" id="loading">正在生成...</div>
+    </div>
+    <div class="field">
+      <label for="shotaid">短網址</label>
+      <div class="ts fluid labeled input" id="shotaidcontainer">
+        <div class="ts label">{{config.siteroot}}</div>
+        <input type="text" id="shotaid" placeholder="(留空表示自動生成)" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="comments" data-tooltip="將會顯示在重定向的頁面, 支援 Markdown">註解</label>
+      <textarea id="comments"></textarea>
+    </div>
+    <div class="field">
+      <div id="list" class="ts list"></div>
+    </div>
+    <div class="field">
+      <button id="addentry" class="ts positive button">增加連結</button>
+    </div>
+    <div class="field">
+      <div class="ts toggle checkbox" id="directcontainer" data-tooltip="僅能在單一網址或者隨機模式時使用, 啟用後將不會顯示註解">
+        <input type="checkbox" id="direct" />
+        <label for="direct">直接重新定向</label>
+      </div>
+    </div>
+    <div class="field">
+      <div class="ts toggle checkbox">
+        <input type="checkbox" id="randomize" />
+        <label for="randomize">根據機率隨機指定一個網址</label>
+      </div>
+    </div>
+    <div class="field">
+      <label for="duration">有效時間</label>
+      <div class="two fields">
+        <div class="field" data-tooltip="超過有效時間後短網址將會自動失效">
+          <div class="ts fluid action input">
+            <input id="duration" type="number" step="any" min="0" value="{{config.maxduration}}" placeholder="有效時間" />
+            <select id="durationspan" class="ts basic dropdown">
+              <option value="60000">分鐘</option>
+              <option value="3600000">小時</option>
+              <option value="86400000">天</option>
+              <option value="604800000">星期</option>
+              <option value="2592000000" selected>月</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" data-tooltip="當有人使用時, 自動基於使用時間延長有效時間">
+          <div class="ts toggle checkbox">
+            <input type="checkbox" id="autoextendduration" checked />
+            <label for="autoextendduration">自動延時</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="clickcount">使用次數</label>
+      <div class="two fields">
+        <div class="field" data-tooltip="超過使用次數後短網址將會自動失效">
+          <div class="ts fluid disabled input" id="clickcountcontainer">
+            <input id="clickcount" type="number" step="1" min="1" max="99999999" value="1" placeholder="使用次數" disabled />
+          </div>
+        </div>
+        <div class="field">
+          <div class="ts toggle checkbox">
+            <input type="checkbox" id="unlimitedclickcount" checked />
+            <label for="unlimitedclickcount">無限制</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="ts positive button">送出</button>
+    <button type="reset" class="ts warning button">重設</button>
+  </form>
+  <form class="ts hidden form" action="###" id="shortenform">
+    <div class="ts basic borderless center aligned slate">
+      <div id="qrcode"></div>
+    </div>
+    <div class="field">
+      <label>已生成的短網址</label>
+      <div class="ts fluid input">
+        <input id="resulturl" type="url" readonly />
+      </div>
+    </div>
+    <div class="field">
+      <label>刪除用代碼</label>
+      <div class="ts fluid input">
+        <input id="removehashdisp" type="text" readonly />
+      </div>
+    </div>
+    <button type="reset" class="ts positive button">返回</button>
+  </form>
+  <h1 class="ts dividing header">
+    <span>刪除短網址</span>
+  </h1>
+  <form class="ts form" action="###" id="removeform">
+    <div class="ts disabled inverted dimmer" id="removeoverlay">
+      <div class="ts text loader" id="loading">正在刪除...</div>
+    </div>
+    <div class="field">
+      <div class="ts fluid action input">
+        <input id="removehash" type="text" placeholder="刪除用代碼" />
+        <button type="submit" class="ts negative button">刪除</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Scripts -->
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/simplemde/1.11.2/simplemde.min.js"></script>
+<script type="text/javascript" src="https://cdn.rawgit.com/davidshimjs/qrcodejs/master/qrcode.min.js"></script>
+<script type="text/javascript" src="/assets/shared/matcher.js"></script>
+<script type="text/javascript">
+  Array.prototype.remove = function() {
+    var what, a = arguments, L = a.length, ax;
+    while(L && this.length) {
+      what = a[--L];
+      while((ax = this.indexOf(what)) !== -1)
+        this.splice(ax, 1);
+    }
+    return this;
+  };
+  (function() {
+    var maxDuration = {{config.maxduration}};
+    var idChecker, idChecked = true;
+    var isLoading;
+    var qrcode;
+    function xhrJsonRequest(method, url, data, callback) {
+      var xhr = new XMLHttpRequest();
+      xhr.open(method, url, true);
+      xhr.setRequestHeader('Content-type', 'application/json');
+      xhr.onreadystatechange = function() {
+        if(xhr.readyState === 4 && xhr.status === 200) {
+          var responseData = JSON.parse(xhr.responseText);
+          callback(responseData);
+        }
+      };
+      xhr.send(data ? JSON.stringify(data) : null);
+      return xhr;
+    }
+    function isNode(o) {
+      return (
+        typeof Node === 'object' ?
+          o instanceof Node :
+          o &&
+          typeof o === 'object' &&
+          typeof o.nodeType === 'number' &&
+          typeof o.nodeName === 'string'
+      );
+    }
+    function constructDom(tree, attributes) {
+      var result = [];
+      function _construct(tree, attributes) {
+        switch(typeof tree) {
+          case 'string':
+            switch(typeof attributes) {
+              case 'undefined':
+                var textNode = document.createTextNode(tree);
+                result.push(textNode);
+                return textNode;
+              case 'object':
+                break;
+              default:
+                attributes = {
+                  innerHTML: attributes.toString()
+                };
+                break;
+            }
+            attributes.tagName = tree;
+            tree = attributes;
+          case 'object':
+            var element = document.createElement(tree.tagName), children;
+            if(Array.isArray(tree.className))
+              tree.className = tree.className.join(' ');
+            if(typeof tree.children !== 'undefined')
+              children = Array.isArray(tree.children) ? tree.children : [tree.children];
+            for(var attribute in tree)
+              switch(attribute) {
+                case 'children':
+                case 'tagName':
+                  continue;
+                default:
+                  if(attribute in element)
+                    element[attribute] = tree[attribute];
+                  else
+                    element.setAttribute(attribute, tree[attribute]);
+                  break;
+              }
+            result.push(element);
+            if(children)
+              for(var i = 0, l = children.length, child; i < l; i++)
+                if(child = _construct(children[i]))
+                  element.appendChild(child);
+            return element;
+        }
+      }
+      _construct(tree, attributes || {});
+      return result;
+    }
+    function addUrlEntry() {
+      var entries = elements.list.entries;
+      var listContainer = elements.list.container;
+      var entry, result = constructDom({
+        tagName: 'div',
+        className: 'item',
+        children: [{
+          tagName: 'div',
+          className: 'ts fluid action input',
+          children: [{
+            tagName: 'input',
+            type: 'url',
+            placeholder: '網址',
+            'data-tooltip': '網址'
+          }, {
+            tagName: 'input',
+            type: 'number',
+            className: 'probs',
+            placeholder: '出現機率',
+            title: '出現機率',
+            value: 1,
+            min: 0,
+            max: 100000,
+            step: 'any'
+          }, {
+            tagName: 'button',
+            className: 'ts negative button',
+            innerText: '移除',
+            onclick: function(e) {
+              e.preventDefault();
+              removeUrlEntry(entry);
+            }
+          }]
+        }]
+      });
+      listContainer.appendChild(result[0]);
+      entry = {
+        container: result[0],
+        urlField: result[1],
+        probField: result[2]
+      };
+      entries.push(entry);
+      updateAutoRedirectState();
+    }
+    function removeUrlEntry(entry) {
+      var entries = elements.list.entries;
+      var container = elements.list.container;
+      if(entries.length <= 1) return;
+      container.removeChild(entry.container);
+      entries.remove(entry);
+      updateAutoRedirectState();
+    }
+    function resetForm() {
+      removeAllUrlEntries();
+      elements.shotaId.field.onchange();
+      elements.comments.editor.value('');
+      elements.randomize.field.onchange();
+      elements.duration.span.onchange();
+      elements.clickCount.unlimited.onchange();
+    }
+    function removeAllUrlEntries() {
+      var entries = elements.list.entries;
+      var container = elements.list.container;
+      for(var i = 0, l = entries.length; i < l; i++)
+        container.removeChild(entries[i].container);
+      elements.list.entries = [];
+      addUrlEntry();
+    }
+    function updateAutoRedirectState() {
+      var entries = elements.list.entries;
+      var container = elements.direct.container;
+      var field = elements.direct.field;
+      var rand = elements.randomize.field;
+      if(field.disabled = entries.length > 1 && !rand.checked)
+        field.checked = false;
+      container.className = field.disabled ? 'ts toggle disabled checkbox' : 'ts toggle checkbox';
+    }
+    function getAllElements(obj) {
+      switch(typeof obj) {
+        case 'string':
+          return document.getElementById(obj);
+        case 'object':
+          if(Array.isArray(obj)) {
+            for(var i = 0, l = obj.length; i < l; i++)
+              obj[i] = getAllElements(obj[i]);
+            break;
+          }
+          if(isNode(obj))
+            break;
+          for(var key in obj)
+            obj[key] = getAllElements(obj[key]);
+          break;
+      }
+      return obj;
+    }
+
+    // Form elements
+    var elements = getAllElements({
+      addForm: {
+        form: 'mainform',
+        overlay: 'addformoverlay'
+      },
+      shotaId: {
+        container: 'shotaidcontainer',
+        field: 'shotaid'
+      },
+      comments: {
+        field: 'comments',
+        editor: null
+      },
+      list: {
+        container: 'list',
+        add: 'addentry',
+        entries: []
+      },
+      direct: {
+        container: 'directcontainer',
+        field: 'direct'
+      },
+      randomize: {
+        field: 'randomize'
+      },
+      duration: {
+        field: 'duration',
+        span: 'durationspan',
+        autoExtend: 'autoextendduration'
+      },
+      clickCount: {
+        container: 'clickcountcontainer',
+        field: 'clickcount',
+        unlimited: 'unlimitedclickcount'
+      },
+      result: {
+        form: 'shortenform',
+        resultUrl: 'resulturl',
+        removeHash: 'removehashdisp',
+        qrcode: {
+          container: 'qrcode',
+          generator: null
+        }
+      },
+      remove: {
+        form: 'removeform',
+        overlay: 'removeoverlay',
+        removeHash: 'removehash'
+      }
+    });
+    elements.comments.editor = new SimpleMDE({ element: elements.comments.field });
+    elements.shotaId.field.onchange = function() {
+      var field = elements.shotaId.field;
+      var container = elements.shotaId.container;
+      if(idChecker) {
+        idChecker.abort();
+        idChecker = null;
+      }
+      if(field.value.length) {
+        container.className = 'ts fluid labeled loading input';
+        idChecker = xhrJsonRequest('GET', '/check/' + field.value, null, function(response) {
+          if(idChecked = response.available)
+            container.className = 'ts fluid labeled basic success input';
+          else
+            container.className = 'ts fluid labeled basic error input';
+          idChecker = null;
+        });
+      } else {
+        container.className = 'ts fluid labeled input';
+        idChecked = true;
+      }
+    };
+    elements.list.add.onclick = function(e) {
+      e.preventDefault();
+      addUrlEntry();
+    };
+    elements.randomize.field.onchange = function() {
+      elements.list.container.className =  elements.randomize.field.checked ? 'ts list show-probs' : 'ts list';
+      updateAutoRedirectState();
+    };
+    elements.duration.field.onchange = function() {
+      var field = elements.duration.field;
+      if(field.value > 0)
+        field.value = Math.min(field.value, field.max);
+      else if(field.value <= 0)
+        field.value = 1;
+    };
+    elements.duration.span.onchange = function() {
+      var field = elements.duration.field;
+      var span = elements.duration.span;
+      field.max = maxDuration / span.value;
+      field.onchange();
+    };
+    elements.clickCount.unlimited.onchange = function() {
+      var field = elements.clickCount.field;
+      var container = elements.clickCount.container;
+      var unlimited = elements.clickCount.unlimited;
+      field.disabled = unlimited.checked;
+      container.className = field.disabled ? 'ts fluid disabled input' : 'ts fluid input';
+    };
+    elements.addForm.form.onreset = function(e) {
+      if(window.setImmediate)
+        setImmediate(resetForm);
+      else
+        setTimeout(resetForm, 1);
+    };
+    elements.addForm.form.onsubmit = function(e) {
+      e.preventDefault();
+      if(isLoading) return;
+      isLoading = true;
+      var data = {
+        comments: elements.comments.editor.value(),
+        targets: (function(entries) {
+          var result = [];
+          for(var i = 0, l = entries.length; i < l; i++) {
+            var entry = entries[i], url = entry.urlField.value;
+            if(url) result.push({
+              url: url,
+              prob: parseFloat(entry.probField.value)
+            });
+          }
+          return result;
+        })(elements.list.entries),
+        removalDuration: Math.floor(elements.duration.field.value * elements.duration.span.value),
+        clickCount: elements.clickCount.unlimited.checked ? -1 : parseInt(elements.clickCount.field.value),
+        randomize: !!elements.randomize.field.checked,
+        autoRedirect: !!elements.direct.field.checked,
+        consistantDuration: !elements.duration.autoExtend.checked
+      };
+      if(data.targets.length < 1) {
+        isLoading = false;
+        alert('請至少輸入一個網址!');
+        return;
+      }
+      if(elements.shotaId.field.value.length)
+        data.id = elements.shotaId.field.value;
+      elements.addForm.overlay.className = 'ts active inverted dimmer';
+      xhrJsonRequest('POST', '/add', data, function(response) {
+        elements.addForm.overlay.className = 'ts disabled inverted dimmer';
+        if(response.error) {
+          alert(response.error);
+          return;
+        }
+        elements.addForm.form.className = 'ts hidden form';
+        elements.result.form.className = 'ts form';
+        elements.result.resultUrl.value = '{{config.siteroot}}' + response.id;
+        elements.result.removeHash.value = response.removeId;
+        if(elements.result.qrcode.generator) {
+          var gen = elements.result.qrcode.generator;
+          gen.clear();
+          gen.makeCode(elements.result.resultUrl.value);
+        } else {
+          elements.result.qrcode.generator = new QRCode(elements.result.qrcode.container, {
+            text: elements.result.resultUrl.value,
+            width: 256, height: 256
+          })
+        }
+      });
+    };
+    elements.result.form.onsubmit = function(e) { e.preventDefault(); };
+    elements.result.form.onreset = function() {
+      elements.addForm.form.className = 'ts form';
+      elements.result.form.className = 'ts hidden form';
+      elements.shotaId.field.onchange();
+    };
+    elements.remove.form.onsubmit = function(e) {
+      e.preventDefault();
+      if(isLoading) return;
+      isLoading = true;
+      elements.remove.overlay.className = 'ts active inverted dimmer';
+      xhrJsonRequest('GET', '/remove/' + elements.remove.removeHash.value, null, function(response) {
+        isLoading = false;
+        elements.remove.overlay.className = 'ts disabled inverted dimmer';
+        if(response.success) {
+          alert('已成功刪除.');
+          elements.remove.form.reset();
+        } else {
+          alert('刪除失敗.\n您輸入的代碼可能有誤, 或者先前的連結已經被刪除.');
+        }
+      });
+    };
+    elements.duration.span.onchange();
+    addUrlEntry();
+  })();
+
+  /* PIWIK */
+  var _paq = _paq || [];
+  // tracker methods like "setCustomDimension" should be called before "trackPageView"
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="//analytics.moka-rin.moe/";
+    _paq.push(['setTrackerUrl', u+'piwik.php']);
+    _paq.push(['setSiteId', '6']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script>
+
+<!-- Styles -->
+<link rel="stylesheet" href="//cdn.rawgit.com/TeaMeow/TocasUI/master/dist/tocas.min.css">
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/simplemde/1.11.2/simplemde.min.css">
+<style type="text/css">
+  .hidden {
+    display: none;
+  }
+  .probs {
+    display: none;
+  }
+  .show-probs .probs {
+    display: block;
+  }
+	#fork img {
+		position: absolute;
+		top: 0;
+		right: 0;
+		border: 0;
+	}
+</style>
+
+<!-- Fork -->
+<a href="https://github.com/JLChnToZ/shota-url" id="fork"><img src="https://camo.githubusercontent.com/652c5b9acfaddf3a9c326fa6bde407b87f7be0f4/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6f72616e67655f6666373630302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png"></a>
+
+<!-- Footer -->
+<footer class="ts very padded horizontally fitted fluid secondary segment">
+  <div class="ts narrow container">
+    <p><b>{{config.siteName}}</b>是由 <a href="https://code.moka-rin.moe/">JLChnToZ</a> 實驗性的製作, 前端模版使用 <a href="https://tocas-ui.com/">Tocas UI</a>.</p>
+    <p>This web service is provided as-is, use at your own risk.</p>
+  </div>
+  <noscript><img src="https://analytics.moka-rin.moe/piwik.php?idsite=6&rec=1" style="border:0" alt="" /></noscript>
+</footer>
+</Body>
+</HTML>

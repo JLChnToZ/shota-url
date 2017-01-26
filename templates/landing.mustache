@@ -1,0 +1,119 @@
+<!DOCTYPE HTML>
+<HTML lang="zh-tw">
+<Head>
+<meta charset="utf8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+{{#ifCond pages.length 1}}
+<noscript><meta http-equiv="refresh" content="5;URL='{{pages.[0]}}'" /></noscript>
+{{/ifCond}}
+<Title>{{config.siteName}}</title>
+</Head>
+<Body>
+{{#if comments}}
+{{{comments}}}
+<hr />
+{{else}}
+<h1>歡迎使用{{config.siteName}}。</h1>
+{{/if}}
+{{#ifCond pages.length 1}}
+<p>此連結將會重定向到 <a href="{{pages.[0]}}">{{pages.[0]}}</a>。</p>
+<p id="countdowncontainer">將會在 <span id="countdown">5</span> 秒後自動重新定向<span class="noscripthidden">，或者<a href="###" id="cancelcd">按這裡取消</a></span>。</p>
+{{else}}
+<p>此連結將會重定向到以下網址：</p>
+<ul>
+{{#each pages}}
+<li><a href="{{this}}" target="_blank">{{this}}</a></li>
+{{/each}}
+</ul>
+<p>
+	<span class="noscripthidden">您可以選擇逐一點擊網址開啟，或者<a href="###" id="openall">點擊這裡全部開啟</a>。<br />
+	<i>注意：如果您的瀏覽器啟用了封鎖彈出視窗功能，點擊全部開啟可能會無法正常作用。屆時請逐一點擊連結或者嘗試將此網站加入例外。</i></span>
+	<noscript>您的瀏覽器不支援或者已停用 JavaScript，故此無法使用自動開啟的功能，請嘗試啟用 JavaScript，或者自行逐一打開連結。</noscript>
+</p>
+{{/ifCond}}
+<hr />
+<footer>
+此頁面由<a href="/">{{config.siteName}}</a>產生及提供。
+</footer>
+<script id="data" type="application/json">
+{ "pages": [{{#each pages}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}] }
+</script>
+<script type="text/javascript">
+	(function() {
+		var links = JSON.parse(document.getElementById('data').innerHTML);
+		var openAll = document.getElementById('openall');
+		if(openAll)
+			openAll.onclick = function(e) {
+				e.preventDefault();
+				for(var i = 0; i < links.pages.length; i++)
+					window.open(links.pages[i], '_blank');
+			};
+		var cdContainer = document.getElementById('countdowncontainer');
+		if(cdContainer) {
+			var cdDisplay = document.getElementById('countdown');
+			var cd, cdTime = 5;
+			var cancelled = false;
+			document.getElementById('cancelcd').onclick = function(e) {
+				e.preventDefault();
+				cdContainer.style.display = 'none';
+				cancelled = true;
+				if(cd) {
+					clearInterval(cd);
+					cd = null;
+				}
+			};
+			window.onscroll = function(ev) {
+				var scrollY = window.innerHeight + window.scrollY;
+				if(((scrollY >= document.body.offsetHeight || scrollY >= document.body.scrollHeight)) && !cd && !cancelled) {
+					cd = setInterval(function() {
+						cdTime--;
+						cdDisplay.innerText = cdTime;
+						if(cdTime <= 0) {
+							clearInterval(cd);
+							cd = null;
+							window.location = links.pages[0];
+						}
+					}, 1000);
+				}
+			};
+			window.onscroll();
+		}
+	})();
+
+	/* PIWIK */
+	var _paq = _paq || [];
+	// tracker methods like "setCustomDimension" should be called before "trackPageView"
+	_paq.push(['trackPageView']);
+	_paq.push(['enableLinkTracking']);
+	(function() {
+		var u="//analytics.moka-rin.moe/";
+		_paq.push(['setTrackerUrl', u+'piwik.php']);
+		_paq.push(['setSiteId', '6']);
+		var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+		g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+	})();
+</script>
+<style type="text/css">
+body {
+	margin: 40px auto;
+	max-width: 650px;
+	line-height: 1.6;
+	font-size: 18px;
+	padding: 0 10px;
+}
+h1, h2, h3 {
+	line-height: 1.2;
+}
+footer {
+	text-align: center;
+}
+</style>
+<noscript>
+	<style type="text/css">
+		.noscripthidden { display: none; }
+	</style>
+	noscripthidden
+	<img src="https://analytics.moka-rin.moe/piwik.php?idsite=6&rec=1" style="border:0" alt="" />
+</noscript>
+</Body>
+</HTML>
