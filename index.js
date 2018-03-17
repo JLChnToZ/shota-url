@@ -42,7 +42,10 @@ const Entry = mongoose.model('urlentries', {
     min: 0,
     max: config.maxduration
   },
-  removalTime: Date,
+  removalTime: {
+    type: Date,
+    expires: 1
+  },
   clickCount: {
     type: Number,
     get: function(v) { return Math.round(v); },
