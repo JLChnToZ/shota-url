@@ -227,12 +227,14 @@
         className: 'item',
         children: [{
           tagName: 'div',
-          className: 'ts fluid action input',
+          className: 'ts fluid action error input',
           children: [{
             tagName: 'input',
             type: 'url',
             placeholder: '網址',
-            'data-tooltip': '網址'
+            'data-tooltip': '網址',
+            required: 'required',
+            oninput: checkValidate
           }, {
             tagName: 'input',
             type: 'number',
@@ -314,6 +316,13 @@
       }
       return obj;
     }
+    function checkValidate(event) {
+      if(!event.target.validity) return;
+      if(event.target.validity.valid)
+        event.target.parentNode.classList.remove('error');
+      else
+        event.target.parentNode.classList.add('error');
+    }
 
     // Form elements
     var elements = getAllElements({
@@ -378,9 +387,9 @@
         container.className = 'ts fluid labeled loading input';
         idChecker = xhrJsonRequest('GET', '/check/' + field.value, null, function(response) {
           if(idChecked = response.available)
-            container.className = 'ts fluid labeled basic success input';
+            container.className = 'ts fluid labeled success input';
           else
-            container.className = 'ts fluid labeled basic error input';
+            container.className = 'ts fluid labeled error input';
           idChecker = null;
         });
       } else {
