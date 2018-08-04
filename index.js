@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const url = require('url');
 const util = require('util');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -177,13 +178,15 @@ const flattenShortcut = Object.freeze({
   'og:video:url': 'og:video',
   'og:audio:url': 'og:audio',
 });
-function flattenMeta(src) {
+function flattenMeta(src, originalUrl) {
   if(!src) return [];
   const temp = [{ name: 'og', content: src }], result = [];
   while(temp.length) {
     const { name, content } = temp.pop();
     for(let key in content) {
       const newName = `${name}:${key}`;
+      if(newName === 'og:url')
+        content[key] = url.resolve(config.siteroot, originalUrl);
       (typeof content[key] === 'object' ? temp : result).push({
         name: flattenShortcut[newName] || newName,
         content: content[key]
@@ -221,7 +224,7 @@ async function getId(req) {
         if(currentWeight > rand) {
           const chosenTarget = entry.targets[i];
           data.pages.push(chosenTarget.url);
-          data.og = !entry.autoRedirect && flattenMeta(chosenTarget.og);
+          data.og = !entry.autoRedirect && flattenMeta(chosenTarget.og, req.originalUrl);
           break;
         }
       }
@@ -229,12 +232,12 @@ async function getId(req) {
     if(data.pages.length < 1) {
       const chosenTarget = entry.targets[Math.floor(Math.random() * targetsCount)];
       data.pages.push(chosenTarget.url);
-      data.og = !entry.autoRedirect && flattenMeta(chosenTarget.og);
+      data.og = !entry.autoRedirect && flattenMeta(chosenTarget.og, req.originalUrl);
     }
   } else {
     for(let i = 0; i < targetsCount; i++)
       data.pages.push(entry.targets[i].url);
-    data.og = !entry.autoRedirect && flattenMeta(entry.targets[0].og);
+    data.og = !entry.autoRedirect && flattenMeta(entry.targets[0].og, req.originalUrl);
   }
   if(entry.autoRedirect)
     return { http: 301, target: data.pages[0] };
