@@ -214,7 +214,7 @@ async function getId(req) {
         if(currentWeight > rand) {
           const chosenTarget = entry.targets[i];
           data.pages.push(chosenTarget.url);
-          data.og = entry.autoRedirect && flattenMeta(chosenTarget.og);
+          data.og = !entry.autoRedirect && flattenMeta(chosenTarget.og);
           break;
         }
       }
@@ -222,12 +222,12 @@ async function getId(req) {
     if(data.pages.length < 1) {
       const chosenTarget = entry.targets[Math.floor(Math.random() * targetsCount)];
       data.pages.push(chosenTarget.url);
-      data.og = entry.autoRedirect && flattenMeta(chosenTarget.og);
+      data.og = !entry.autoRedirect && flattenMeta(chosenTarget.og);
     }
   } else {
     for(let i = 0; i < targetsCount; i++)
       data.pages.push(entry.targets[i].url);
-    data.og = entry.autoRedirect && flattenMeta(entry.targets[0].og);
+    data.og = !entry.autoRedirect && flattenMeta(entry.targets[0].og);
   }
   if(entry.autoRedirect)
     return { http: 301, target: data.pages[0] };
