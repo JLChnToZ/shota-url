@@ -3,6 +3,9 @@
 <Head>
 <meta charset="utf8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+{{#each og}}
+<meta name="{{name}}" content="{{content}}" />
+{{/each}}
 {{#ifCond pages.length 1}}
 <noscript><meta http-equiv="refresh" content="5;URL='{{pages.[0]}}'" /></noscript>
 {{/ifCond}}
@@ -36,7 +39,7 @@
 此頁面由<a href="/">{{config.siteName}}</a>產生及提供。
 </footer>
 <script id="data" type="application/json">
-{ "pages": [{{#each pages}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}] }
+{ "pages": {{json pages}} }
 </script>
 <script type="text/javascript">
 	(function() {

@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const _ = require('underscore');
+const util = require('util');
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
@@ -8,6 +8,7 @@ const handlebars = require('handlebars');
 const SelfReloadJson = require('self-reload-json');
 const Hashids = require('hashids');
 const marked = require('marked');
+const og = require('open-graph');
 const minify = require('html-minifier').minify;
 
 const matcher = require('./static/assets/shared/matcher');
@@ -35,7 +36,9 @@ const Entry = mongoose.model('urlentries', {
       type: Number,
       min: 0,
       'default': 1
-    }
+    },
+    og: { type: mongoose.Schema.Types.Mixed },
+    preview: { type: Buffer },
   }],
   removalDuration: {
     type: Number,
@@ -54,12 +57,17 @@ const Entry = mongoose.model('urlentries', {
   },
   randomize: Boolean,
   autoRedirect: Boolean,
-  consistantDuration: Boolean
+  consistantDuration: Boolean,
+  og: Number,
 });
 
 // Load templates
 handlebars.registerHelper('ifCond', function(v1, v2, options) {
   return v1 === v2 ? options.fn(this) : options.inverse(this);
+});
+handlebars.registerHelper('json', function(value, space) {
+  if(arguments.length < 2) return '';
+  return JSON.stringify(value, null, arguments.length > 2 && space || '');
 });
 const indexPage = handlebars.compile(fs.readFileSync(path.resolve(__dirname, 'templates/index.mustache'), 'utf8'));
 const landingPage = handlebars.compile(fs.readFileSync(path.resolve(__dirname, 'templates/landing.mustache'), 'utf8'));
@@ -87,12 +95,32 @@ async function add(req) {
     req.body.comments = marked(req.body.comments);
   req.body.removalTime = new Date(Date.now() + req.body.removalDuration);
   req.body.rid = removalHashGen.encode(id);
+  await Promise.all(req.body.targets.map(mapOg, req.body));
   const entry = new Entry(req.body);
   await entry.save();
   return {
     id: req.body.id,
     removeId: req.body.rid
   };
+}
+const ogParse = util.promisify(og);
+async function mapOg(target) {
+  if(this.og) 
+    try {
+      delete target.preview;
+      target.og = await ogParse(target.url);
+      if(target.og && this.og < 0) {
+        // Remove all meta if exists
+        delete target.og.image;
+        delete target.og.video;
+        delete target.og.audio;
+      }
+    } catch(e) {}
+  else {
+    delete target.og;
+    delete target.preview;
+  }
+  return target;
 }
 app.post('/add', (req, res) => {
   add(req).then(
@@ -109,6 +137,7 @@ async function check(req) {
     case 'check':
     case 'assets':
     case 'remove':
+    case 'preview':
     case 'favicon.ico':
       return false;
   }
@@ -135,6 +164,27 @@ app.get('/remove/:remid', (req, res) => {
   );
 });
 
+app.get('/preview/:id/:i', async(req, res) => {
+  const entry = await Entry.findOne({ rid: req.params.id });
+  if(!entry || i < 0 || i >= entry.length || !entry[i].preview)
+    return res.status(404).end('No such preview');
+  res.type('png');
+  res.send(entry[i].preview);
+});
+
+function flattenMeta(src) {
+  if(!src) return [];
+  const temp = [{ name: 'og', content: src }], result = [];
+  while(temp.length) {
+    const { name, content } = temp.pop();
+    for(let key in content)
+      (typeof content[key] === 'object' ? temp : result).push({
+        name: `${name}:${key}`,
+        content: content[key]
+      });
+  }
+  return result;
+}
 async function getId(req) {
   const entry = await Entry.findOne({ id: req.params.id });
   if(!entry || (entry.clickCount < 1 && entry.clickCount !== -1) || entry.removalTime <= new Date()) {
@@ -152,26 +202,32 @@ async function getId(req) {
     config: config,
     comments: entry.comments
   };
-  const l = entry.targets.length;
-  if(entry.randomize && l) {
+  const targetsCount = entry.targets.length;
+  if(entry.randomize && targetsCount) {
     let totalWeight = 0, rand = 0, currentWeight = 0;
-    for(let i = 0; i < l; i++)
+    for(let i = 0; i < targetsCount; i++)
       totalWeight += entry.targets[i].prob;
     if(totalWeight > 0) {
       rand = Math.random() * totalWeight;
-      for(let i = 0; i < l; i++) {
+      for(let i = 0; i < targetsCount; i++) {
         currentWeight += entry.targets[i].prob;
         if(currentWeight > rand) {
-          data.pages.push(entry.targets[i].url);
+          const chosenTarget = entry.targets[i];
+          data.pages.push(chosenTarget.url);
+          data.og = entry.autoRedirect && flattenMeta(chosenTarget.og);
           break;
         }
       }
     }
-    if(data.pages.length < 1)
-      data.pages.push(entry.targets[Math.floor(Math.random() * l)].url);
+    if(data.pages.length < 1) {
+      const chosenTarget = entry.targets[Math.floor(Math.random() * targetsCount)];
+      data.pages.push(chosenTarget.url);
+      data.og = entry.autoRedirect && flattenMeta(chosenTarget.og);
+    }
   } else {
-    for(let i = 0; i < l; i++)
+    for(let i = 0; i < targetsCount; i++)
       data.pages.push(entry.targets[i].url);
+    data.og = entry.autoRedirect && flattenMeta(entry.targets[0].og);
   }
   if(entry.autoRedirect)
     return { http: 301, target: data.pages[0] };

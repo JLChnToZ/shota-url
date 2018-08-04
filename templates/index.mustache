@@ -7,7 +7,7 @@
 </Head>
 <Body>
 <!-- Fork -->
-<a href="https://github.com/JLChnToZ/shota-url" id="fork"><img src="https://camo.githubusercontent.com/8b6b8ccc6da3aa5722903da7b58eb5ab1081adee/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f6f72616e67655f6666373630302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png"></a>
+<a class="github-fork-ribbon" href="https://github.com/JLChnToZ/shota-url" data-ribbon="Fork me on GitHub" title="Fork me on GitHub">Fork me on GitHub</a>
 
 <div class="ts narrow container">
   <h1 class="ts dividing header">
@@ -90,6 +90,15 @@
         </div>
       </div>
     </div>
+    <div class="field" data-tooltip="自動轉移第一個 (或者隨機一個如適用) 網址提供的元資料, 啟動後分享時可直接提供預覽 (如支援) (無法在直接重新定向的模式下使用)">
+      <label for="og">自動轉移元資料</label>
+      <select id="og" class="ts basic dropdown">
+        <option value="0" selected>停用</option>
+        <option value="-1">啟用, 但只提供文字描述</option>
+        <!--option value="-2">啟用, 但只提供模糊及低畫質的圖片預覽</option-->
+        <option value="1">完全啟用</option>
+      </select>
+    </div>
     <button type="submit" class="ts positive button">送出</button>
     <button type="reset" class="ts warning button">重設</button>
   </form>
@@ -133,7 +142,7 @@
 <script type="text/javascript" src="https://cdn.rawgit.com/davidshimjs/qrcodejs/master/qrcode.min.js"></script>
 <script type="text/javascript" src="/assets/shared/matcher.js"></script>
 <script type="text/javascript">
-  Array.prototype.remove = function() {
+  function remove() {
     var what, a = arguments, L = a.length, ax;
     while(L && this.length) {
       what = a[--L];
@@ -141,7 +150,7 @@
         this.splice(ax, 1);
     }
     return this;
-  };
+  }
   (function() {
     var maxDuration = {{config.maxduration}};
     var idChecker, idChecked = true;
@@ -270,7 +279,7 @@
       var container = elements.list.container;
       if(entries.length <= 1) return;
       container.removeChild(entry.container);
-      entries.remove(entry);
+      remove.call(entries, entry);
       updateAutoRedirectState();
     }
     function resetForm() {
@@ -349,6 +358,9 @@
       },
       randomize: {
         field: 'randomize'
+      },
+      og: {
+        field: 'og'
       },
       duration: {
         field: 'duration',
@@ -452,7 +464,8 @@
         clickCount: elements.clickCount.unlimited.checked ? -1 : parseInt(elements.clickCount.field.value),
         randomize: !!elements.randomize.field.checked,
         autoRedirect: !!elements.direct.field.checked,
-        consistantDuration: !elements.duration.autoExtend.checked
+        consistantDuration: !elements.duration.autoExtend.checked,
+        og: parseInt(elements.og.field.value)
       };
       if(!data.targets.length) {
         isLoading = false;
@@ -527,6 +540,7 @@
 <!-- Styles -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/simplemde/1.11.2/simplemde.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.2/gh-fork-ribbon.min.css" />
 <style type="text/css">
   .hidden {
     display: none;
@@ -537,12 +551,6 @@
   .show-probs .probs {
     display: block;
   }
-	#fork img {
-		position: absolute;
-		top: 0;
-		left: 0;
-		border: 0;
-	}
 </style>
 
 <!-- Footer -->
