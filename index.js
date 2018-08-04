@@ -172,16 +172,23 @@ app.get('/preview/:id/:i', async(req, res) => {
   res.send(entry[i].preview);
 });
 
+const flattenShortcut = Object.freeze({
+  'og:image:url': 'og:image',
+  'og:video:url': 'og:video',
+  'og:audio:url': 'og:audio',
+});
 function flattenMeta(src) {
   if(!src) return [];
   const temp = [{ name: 'og', content: src }], result = [];
   while(temp.length) {
     const { name, content } = temp.pop();
-    for(let key in content)
+    for(let key in content) {
+      const newName = `${name}:${key}`;
       (typeof content[key] === 'object' ? temp : result).push({
-        name: `${name}:${key}`,
+        name: flattenShortcut[newName] || newName,
         content: content[key]
       });
+    }
   }
   return result;
 }
