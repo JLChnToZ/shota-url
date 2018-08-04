@@ -1,6 +1,6 @@
 {
   "name": "shota-url",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Simple multiple URL shorten service",
   "main": "index.js",
   "scripts": {
