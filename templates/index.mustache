@@ -30,8 +30,14 @@
       </div>
     </div>
     <div class="field">
-      <label for="comments" data-tooltip="將會顯示在重定向的頁面, 支援 Markdown">註解</label>
-      <textarea id="comments"></textarea>
+      <details class="ts accordion">
+        <summary data-tooltip="將會顯示在重定向的頁面, 支援 Markdown">
+          <i class="dropdown icon"></i> 註解
+        </summary>
+        <div class="content">
+          <textarea id="comments"></textarea>
+        </div>
+      </details>
     </div>
     <div class="field">
       <div id="list" class="ts list"></div>
@@ -99,6 +105,7 @@
         <option value="1">完全啟用</option>
       </select>
     </div>
+    {{#if capcha}}<div class="field">{{{capcha}}}</div>{{/if}}
     <button type="submit" class="ts positive button">送出</button>
     <button type="reset" class="ts warning button">重設</button>
   </form>
@@ -289,6 +296,7 @@
       elements.randomize.field.onchange();
       elements.duration.span.onchange();
       elements.clickCount.unlimited.onchange();
+      grecaptcha && grecaptcha.reset();
     }
     function removeAllUrlEntries() {
       var entries = elements.list.entries;
@@ -443,30 +451,37 @@
       else
         setTimeout(resetForm, 1);
     };
+    function mapEntries(entries) {
+      var result = [];
+      for(var i = 0, l = entries.length; i < l; i++) {
+        var entry = entries[i], url = entry.urlField.value;
+        if(url) result.push({
+          url: url,
+          prob: parseFloat(entry.probField.value)
+        });
+      }
+      return result;
+    }
     elements.addForm.form.onsubmit = function(e) {
       e.preventDefault();
       if(isLoading) return;
       isLoading = true;
       var data = {
         comments: elements.comments.editor.value(),
-        targets: (function(entries) {
-          var result = [];
-          for(var i = 0, l = entries.length; i < l; i++) {
-            var entry = entries[i], url = entry.urlField.value;
-            if(url) result.push({
-              url: url,
-              prob: parseFloat(entry.probField.value)
-            });
-          }
-          return result;
-        })(elements.list.entries),
+        targets: mapEntries(elements.list.entries),
         removalDuration: Math.floor(elements.duration.field.value * elements.duration.span.value),
         clickCount: elements.clickCount.unlimited.checked ? -1 : parseInt(elements.clickCount.field.value),
         randomize: !!elements.randomize.field.checked,
         autoRedirect: !!elements.direct.field.checked,
         consistantDuration: !elements.duration.autoExtend.checked,
-        og: parseInt(elements.og.field.value)
+        og: parseInt(elements.og.field.value),
+        'g-recaptcha-response':  grecaptcha && grecaptcha.getResponse()
       };
+      if(grecaptcha && !data['g-recaptcha-response']) {
+        isLoading = false;
+        alert('請先驗證您不是機器人!');
+        return;
+      }
       if(!data.targets.length) {
         isLoading = false;
         alert('請至少輸入一個網址!');
@@ -503,6 +518,7 @@
       elements.addForm.form.className = 'ts form';
       elements.result.form.className = 'ts hidden form';
       elements.shotaId.field.onchange();
+      elements.addForm.form.reset();
     };
     elements.remove.form.onsubmit = function(e) {
       e.preventDefault();

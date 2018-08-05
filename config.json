@@ -17,5 +17,9 @@
     "removeOptionalTags": true,
     "removeRedundantAttributes": true,
     "useShortDoctype": true
+  },
+  "recapcha": {
+    "publickey": "",
+    "secretkey": ""
   }
 }

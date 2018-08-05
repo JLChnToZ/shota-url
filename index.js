@@ -4,13 +4,14 @@ const url = require('url');
 const util = require('util');
 const express = require('express');
 const bodyParser = require('body-parser');
+const { Recaptcha } = require('express-recaptcha');
 const mongoose = require('mongoose');
 const handlebars = require('handlebars');
 const SelfReloadJson = require('self-reload-json');
 const Hashids = require('hashids');
 const marked = require('marked');
 const og = require('open-graph');
-const minify = require('html-minifier').minify;
+const { minify } = require('html-minifier');
 
 const matcher = require('./static/assets/shared/matcher');
 
@@ -24,6 +25,8 @@ function noop() {}
 const config = new SelfReloadJson(path.resolve(__dirname, 'config.json'));
 const removalHashGen = new Hashids(config.removeHashSalt || 'removeshota');
 const createIdHash = new Hashids(config.linkHashSalt || 'shota', 10);
+const recaptcha = config.recapcha && new Recaptcha(config.recapcha.publickey, config.recapcha.secretkey);
+if(recaptcha) recaptcha.verifyPromise = util.promisify(recaptcha.verify);
 
 // Initialize mongoose schema
 mongoose.connect(config.db || 'mongodb://localhost/shotaurl');
@@ -79,8 +82,9 @@ app.disable('x-powered-by');
 app.use(bodyParser.json());
 app.use(express.static(path.resolve(__dirname, 'static')));
 
+if(recaptcha) app.use('/', recaptcha.middleware.render);
 app.get('/', (req, res) => {
-  res.send(minify(indexPage({ config: config }), config.minifyOptions));
+  res.send(minify(indexPage({ config, capcha: res.recaptcha }), config.minifyOptions));
 });
 
 let inuseId = 0;
@@ -90,6 +94,8 @@ async function add(req) {
     id = ++inuseId;
   else
     inuseId = id;
+  if(recaptcha)
+    await recaptcha.verifyPromise(req);
   if(!req.body.id)
     req.body.id = createIdHash.encode(id);
   if(req.body.comments)
@@ -97,8 +103,7 @@ async function add(req) {
   req.body.removalTime = new Date(Date.now() + req.body.removalDuration);
   req.body.rid = removalHashGen.encode(id);
   await Promise.all(req.body.targets.map(mapOg, req.body));
-  const entry = new Entry(req.body);
-  await entry.save();
+  await new Entry(req.body).save();
   return {
     id: req.body.id,
     removeId: req.body.rid
@@ -126,7 +131,7 @@ async function mapOg(target) {
 app.post('/add', (req, res) => {
   add(req).then(
     resp => res.send(resp),
-    err => res.send({ error: err.message })
+    err => res.send({ error: err.message || err || 'Unknown Error' })
   );
 });
 
@@ -195,6 +200,9 @@ function flattenMeta(src, originalUrl) {
   }
   return result;
 }
+function mapLinks(page) {
+  return page.url;
+}
 async function getId(req) {
   const entry = await Entry.findOne({ id: req.params.id });
   if(!entry || (entry.clickCount < 1 && entry.clickCount !== -1) || entry.removalTime <= new Date()) {
@@ -209,7 +217,7 @@ async function getId(req) {
   const data = {
     pages: [],
     random: entry.randomize,
-    config: config,
+    config,
     comments: entry.comments
   };
   const targetsCount = entry.targets.length;
@@ -222,25 +230,24 @@ async function getId(req) {
       for(let i = 0; i < targetsCount; i++) {
         currentWeight += entry.targets[i].prob;
         if(currentWeight > rand) {
-          const chosenTarget = entry.targets[i];
-          data.pages.push(chosenTarget.url);
-          data.og = !entry.autoRedirect && flattenMeta(chosenTarget.og, req.originalUrl);
+          data.pages.push(entry.targets[i]);
           break;
         }
       }
     }
-    if(data.pages.length < 1) {
-      const chosenTarget = entry.targets[Math.floor(Math.random() * targetsCount)];
-      data.pages.push(chosenTarget.url);
-      data.og = !entry.autoRedirect && flattenMeta(chosenTarget.og, req.originalUrl);
-    }
+    if(data.pages.length < 1)
+      data.pages.push(entry.targets[Math.floor(Math.random() * targetsCount)]);
   } else {
-    for(let i = 0; i < targetsCount; i++)
-      data.pages.push(entry.targets[i].url);
-    data.og = !entry.autoRedirect && flattenMeta(entry.targets[0].og, req.originalUrl);
+    data.pages = entry.targets;
   }
   if(entry.autoRedirect)
-    return { http: 301, target: data.pages[0] };
+    return { http: 301, target: data.pages[0].url };
+  data.links = data.pages.map(mapLinks);
+  for(const page of data.pages)
+    if(page.og) {
+      data.og = flattenMeta(page.og, req.originalUrl);
+      break;
+    }
   return { content: minify(landingPage(data), config.minifyOptions) };
 }
 app.get('/:id', (req, res) => {
