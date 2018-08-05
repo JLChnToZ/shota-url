@@ -69,6 +69,20 @@ const Entry = mongoose.model('urlentries', {
 handlebars.registerHelper('ifCond', function(v1, v2, options) {
   return v1 === v2 ? options.fn(this) : options.inverse(this);
 });
+handlebars.registerHelper('attrs', function(value) {
+  if(arguments.length < 2) return '';
+  let result = '';
+  for(let attr in value)
+    if(value[attr] !== undefined && value[attr] !== null)
+      result += `${
+        result ? ' ' : ''
+      }${
+        handlebars.escapeExpression(attr)
+      }="${
+        handlebars.escapeExpression(value[attr])
+      }"`;
+  return new handlebars.SafeString(result);
+});
 handlebars.registerHelper('json', function(value, space) {
   if(arguments.length < 2) return '';
   return JSON.stringify(value, null, arguments.length > 2 && space || '');
@@ -183,17 +197,21 @@ const flattenShortcut = Object.freeze({
   'og:video:url': 'og:video',
   'og:audio:url': 'og:audio',
 });
+const altMetaNames = Object.freeze({
+  'og:description': 'description'
+});
 function flattenMeta(src, originalUrl) {
   if(!src) return [];
-  const temp = [{ name: 'og', content: src }], result = [];
+  const temp = [{ property: 'og', content: src }], result = [];
   while(temp.length) {
-    const { name, content } = temp.pop();
+    const { property, content } = temp.pop();
     for(let key in content) {
-      const newName = `${name}:${key}`;
+      const newName = `${property}:${key}`;
       if(newName === 'og:url')
         content[key] = url.resolve(config.siteroot, originalUrl);
       (typeof content[key] === 'object' ? temp : result).push({
-        name: flattenShortcut[newName] || newName,
+        property: flattenShortcut[newName] || newName,
+        name: altMetaNames[newName],
         content: content[key]
       });
     }
@@ -241,7 +259,7 @@ async function getId(req) {
     data.pages = entry.targets;
   }
   if(entry.autoRedirect)
-    return { http: 301, target: data.pages[0].url };
+    return { http: entry.randomize && targetsCount ? 302 : 301, target: data.pages[0].url };
   data.links = data.pages.map(mapLinks);
   for(const page of data.pages)
     if(page.og) {

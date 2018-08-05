@@ -3,8 +3,9 @@
 <Head>
 <meta charset="utf8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+<meta name="robots" content="noindex, nofollow" />
 {{#each og}}
-<meta property="{{name}}" content="{{content}}" />
+<meta {{attrs this}}/>
 {{/each}}
 {{#ifCond pages.length 1}}
 <noscript><meta http-equiv="refresh" content="5;URL='{{pages.[0].url}}'" /></noscript>
@@ -52,7 +53,7 @@
 </script>
 <script type="text/javascript">
 	(function() {
-		var links = JSON.parse(document.getElementById('data').innerHTML);
+		var links = JSON.parse(document.getElementById('data').textContent);
 		var openAll = document.getElementById('openall');
 		if(openAll)
 			openAll.onclick = function(e) {

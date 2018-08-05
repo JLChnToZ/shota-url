@@ -29,74 +29,79 @@
         <input type="text" id="shotaid" placeholder="(留空表示自動生成)" />
       </div>
     </div>
-    <div class="field">
-      <details class="ts accordion">
-        <summary data-tooltip="將會顯示在重定向的頁面, 支援 Markdown">
-          <i class="dropdown icon"></i> 註解
-        </summary>
-        <div class="content">
+    <details class="ts accordion">
+      <summary><i class="dropdown icon"></i> 註解</summary>
+      <div class="content">
+        <div class="field">
           <textarea id="comments"></textarea>
+          <small>將會顯示在重定向的頁面, 支援 Markdown</small>
         </div>
-      </details>
+      </div>
+    </details>
+    <fieldset id="list">
+      <legend>重定向目標</legend>
+    </fieldset>
+    <div class="field">
+      <button id="addentry" class="ts positive labeled icon button"><i class="plus icon"></i> 增加連結</button>
     </div>
     <div class="field">
-      <div id="list" class="ts list"></div>
-    </div>
-    <div class="field">
-      <button id="addentry" class="ts positive button">增加連結</button>
-    </div>
-    <div class="field">
-      <div class="ts toggle checkbox" id="directcontainer" data-tooltip="僅能在單一網址或者隨機模式時使用, 啟用後將不會顯示註解">
+      <div class="ts toggle checkbox" id="directcontainer">
         <input type="checkbox" id="direct" />
         <label for="direct">直接重新定向</label>
       </div>
+      <small>僅能在單一網址或者隨機模式時使用, 啟用後將不會顯示註解</small>
     </div>
     <div class="field">
       <div class="ts toggle checkbox">
         <input type="checkbox" id="randomize" />
         <label for="randomize">根據機率隨機指定一個網址</label>
       </div>
+      <small>啟用這選項後, 當指定多個網址時 (以及選擇性的修改出現機率/權重), 每次使用生成網址時就會隨機的引導到其中一個而不是全部目標網址</small>
     </div>
     <div class="field">
       <label for="duration">有效時間</label>
-      <div class="two fields">
-        <div class="field" data-tooltip="超過有效時間後短網址將會自動失效">
-          <div class="ts fluid action input">
+      <div class="fields">
+        <div class="eleven wide field">
+          <div class="ts fluid input">
             <input id="duration" type="number" step="any" min="0" value="{{config.maxduration}}" placeholder="有效時間" />
-            <select id="durationspan" class="ts basic dropdown">
-              <option value="60000">分鐘</option>
-              <option value="3600000">小時</option>
-              <option value="86400000">天</option>
-              <option value="604800000">星期</option>
-              <option value="2592000000" selected>月</option>
-            </select>
           </div>
         </div>
-        <div class="field" data-tooltip="當有人使用時, 自動基於使用時間延長有效時間">
+        <div class="two wide field">
+          <select id="durationspan" class="ts basic dropdown">
+            <option value="60000">分鐘</option>
+            <option value="3600000">小時</option>
+            <option value="86400000">天</option>
+            <option value="604800000">星期</option>
+            <option value="2592000000" selected>月</option>
+          </select>
+        </div>
+        <div class="three wide field">
           <div class="ts toggle checkbox">
             <input type="checkbox" id="autoextendduration" checked />
             <label for="autoextendduration">自動延時</label>
           </div>
         </div>
       </div>
+      <small>超過有效時間後短網址將會自動失效. 也可以設置為當有人使用時, 自動延長有效時間 (重置計時器)</small>
     </div>
     <div class="field">
       <label for="clickcount">使用次數</label>
-      <div class="two fields">
-        <div class="field" data-tooltip="超過使用次數後短網址將會自動失效">
+      <div class="fields">
+        <div class="thirteen wide field">
           <div class="ts fluid disabled input" id="clickcountcontainer">
             <input id="clickcount" type="number" step="1" min="1" max="99999999" value="1" placeholder="使用次數" disabled />
           </div>
         </div>
-        <div class="field">
+        <div class="three wide field">
           <div class="ts toggle checkbox">
             <input type="checkbox" id="unlimitedclickcount" checked />
             <label for="unlimitedclickcount">無限制</label>
           </div>
         </div>
       </div>
+      <small>超過使用次數後短網址將會自動失效, 請注意其他網站/服務欲載入預覽時也會當作一次使用次數</small>
     </div>
-    <div class="field" data-tooltip="自動轉移第一個 (或者隨機一個如適用) 網址提供的元資料, 啟動後分享時可直接提供預覽 (如支援) (無法在直接重新定向的模式下使用)">
+    <div class="field">
       <label for="og">自動轉移元資料</label>
       <select id="og" class="ts basic dropdown">
         <option value="0" selected>停用</option>
@@ -104,10 +109,11 @@
         <!--option value="-2">啟用, 但只提供模糊及低畫質的圖片預覽</option-->
         <option value="1">完全啟用</option>
       </select>
+      <small>自動轉移第一個可用的 (或者隨機一個, 如選擇了隨機網址) 網址提供的元資料, 啟動後分享時可直接提供預覽 (如支援) (無法在直接重新定向的模式下使用)</small>
     </div>
     {{#if capcha}}<div class="field">{{{capcha}}}</div>{{/if}}
-    <button type="submit" class="ts positive button">送出</button>
-    <button type="reset" class="ts warning button">重設</button>
+    <button type="submit" class="ts positive labeled icon button"><i class="compress icon"></i> 生成</button>
+    <button type="reset" class="ts warning labeled icon button"><i class="undo icon"></i> 重設</button>
   </form>
   <form class="ts hidden form" action="###" id="shortenform">
     <div class="ts basic borderless center aligned slate">
@@ -124,6 +130,7 @@
       <div class="ts fluid input">
         <input id="removehashdisp" type="text" readonly />
       </div>
+      <small>如需要提早刪除此短網址, 請妥善保管此代碼</small>
     </div>
     <button type="reset" class="ts positive button">返回</button>
   </form>
@@ -137,8 +144,9 @@
     <div class="field">
       <div class="ts fluid action input">
         <input id="removehash" type="text" placeholder="刪除用代碼" />
-        <button type="submit" class="ts negative button">刪除</button>
+        <button type="submit" class="ts negative labeled icon button"><i class="trash outline icon"></i> 刪除</button>
       </div>
+      <small>刪除後代碼對應的短網址將會立即失效</small>
     </div>
   </form>
 </div>
@@ -163,6 +171,7 @@
     var idChecker, idChecked = true;
     var isLoading;
     var qrcode;
+    var counter = 0;
     function xhrJsonRequest(method, url, data, callback) {
       var xhr = new XMLHttpRequest();
       xhr.open(method, url, true);
@@ -238,33 +247,48 @@
     function addUrlEntry() {
       var entries = elements.list.entries;
       var listContainer = elements.list.container;
+      counter++;
       var entry, result = constructDom({
         tagName: 'div',
-        className: 'item',
+        className: 'ts inline fields',
         children: [{
           tagName: 'div',
-          className: 'ts fluid action error input',
+          className: 'eleven wide field',
           children: [{
+            tagName: 'label',
+            htmlFor: 'targeturl' + counter,
+            textContent: '網址'
+          }, {
             tagName: 'input',
             type: 'url',
-            placeholder: '網址',
-            'data-tooltip': '網址',
+            placeholder: 'https://www.',
+            id: 'targeturl' + counter,
             required: 'required',
             oninput: checkValidate
+          }]
+        }, {
+          tagName: 'div',
+          className: 'four wide field',
+          children: [{
+            tagName: 'label',
+            htmlFor: 'targetprobs' + counter,
+            textContent: '出現機率 (權重)'
           }, {
             tagName: 'input',
             type: 'number',
             className: 'probs',
-            placeholder: '出現機率',
-            title: '出現機率',
+            id: 'targetprobs' + counter,
             value: 1,
             min: 0,
             max: 100000,
             step: 'any'
-          }, {
+          }]
+        }, {
+          tagName: 'div',
+          className: 'one wide field',
+          children: [{
             tagName: 'button',
-            className: 'ts negative button',
-            textContent: '移除',
+            className: 'ts negative close button',
             onclick: function(e) {
               e.preventDefault();
               removeUrlEntry(entry);
@@ -275,8 +299,8 @@
       listContainer.appendChild(result[0]);
       entry = {
         container: result[0],
-        urlField: result[2],
-        probField: result[3]
+        urlField: result[3],
+        probField: result[6]
       };
       entries.push(entry);
       updateAutoRedirectState();
@@ -422,7 +446,6 @@
       addUrlEntry();
     };
     elements.randomize.field.onchange = function() {
-      elements.list.container.className =  elements.randomize.field.checked ? 'ts list show-probs' : 'ts list';
       updateAutoRedirectState();
     };
     elements.duration.field.onchange = function() {
@@ -562,11 +585,8 @@
   .hidden {
     display: none;
   }
-  .probs {
-    display: none;
-  }
-  .show-probs .probs {
-    display: block;
+  #qrcode {
+    display: inline-block;
   }
 </style>
 
